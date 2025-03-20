@@ -1,29 +1,23 @@
 import http from 'node:http';
 import { json } from './middleware/json.js';
 import { Database } from './database.js';
-
-const database = new Database();
+import { routes } from './routes.js';
 
 const server = http.createServer(async (req, res) => {
   const { method, url } = req;
 
   await json(req, res);
 
-  if (method == 'GET' && url == '/users') {
-    const users = database.select('users');
-    return res.end(JSON.stringify(users));
-  }
-  if (method == 'POST' && url == '/users') {
-    const { name, email } = req.body;
-    const user = {
-      id: 1,
-      name,
-      email,
-    };
+  const route = routes.find((route) => {
+    return route.method === method && route.path.test(url);
+  });
 
-    database.insert('users', user);
+  if (route) {
+    const routeParams = req.url.match(route.path);
 
-    return res.writeHead(201).end();
+    req.params = { ...routeParams.groups };
+
+    return route.handler(req, res);
   }
 
   return res.writeHead(404).end();
